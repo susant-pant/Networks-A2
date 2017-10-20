@@ -1,5 +1,3 @@
-
-
 /**
  * WebServer Class
  * 
@@ -9,11 +7,9 @@ import java.util.*;
 import java.io.*;
 import java.net.*;
 
-
 public class WebServer extends Thread {
-	public String serverName;
-	public boolean shutdown;
-	public int serverPort;
+	public boolean shutdown;		//boolean that tells threads if server is shutdown
+	public int serverPort;			//global access to the server's port
 
     /**
      * Default constructor to initialize the web server
@@ -34,20 +30,21 @@ public class WebServer extends Thread {
      */
 	public void run() {
 		try {
-			ServerSocket serverSocket = new ServerSocket(serverPort);
-			serverSocket.setSoTimeout(1000);
-			while (!shutdown) {
+			ServerSocket serverSocket = new ServerSocket(serverPort);	//opens a new server socket that listens at serverPort
+			serverSocket.setSoTimeout(1000);			//timeout every second to check whether server has shutdown
+			while (!shutdown) {							//if not, wait for a client
 				try {
 					Socket socket = serverSocket.accept();
-
+					//when the socket accepts a client, send it to a Worker thread so main thread can continue listening
 					(new Worker(socket)).start();
 				} catch (SocketTimeoutException e) {
-					//ignore
+					//do nothing, this is naturally caught every second
 				}
 			}
 			serverSocket.close();
 		} catch (Exception f) {
-			//ignore
+			System.out.println("Terminal exception caught.");
+			System.exit(1);
 		}
 	}
 
@@ -56,7 +53,7 @@ public class WebServer extends Thread {
 	 *
      */
 	public void shutdown() {
-		shutdown = true;
+		shutdown = true;		//flags the server's threads to terminate
 	}
 
 	/**
