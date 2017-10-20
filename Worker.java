@@ -1,9 +1,9 @@
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.net.*;
 import java.text.*;
 import java.util.*;
-
 public class Worker extends Thread {
 	private Socket connection;
 	
@@ -24,29 +24,41 @@ public class Worker extends Thread {
 		String lastMod = "";
 		String contentLength = "";
 		String contentType = "";
-		String response = "";
+		String header = "";
 
 		try {
-			PrintWriter outputStream = new PrintWriter(new DataOutputStream(connection.getOutputStream()));
+			OutputStream outputStream = connection.getOutputStream();
 			Scanner inputStream = new Scanner(new InputStreamReader(connection.getInputStream()));
+			ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
 			request = inputStream.nextLine();
 			temp = request.split(" ");
 
+			byte[] headerBytes;
+
 			if (!(temp.length == 3) || !(temp[0].equals("GET")) || !(temp[2].equals("HTTP/1.0") || temp[2].equals("HTTP/1.1"))) {
-				response = "HTTP/1.1 400 Bad Request\r\n"
+				header = "HTTP/1.1 400 Bad Request\r\n"
 							+ date + "\r\n"
 							+ server + "\r\n"
 							+ connect + "\r\n" + "\r\n";
-			} else {
 
+				headerBytes = header.getBytes("US-ASCII");
+				byteStream.write(headerBytes);
+			}
+			
+			else {
 				File file = new File(System.getProperty("user.dir") + temp[1]);
 
 				if (!file.exists()) {
-					response = "HTTP/1.1 404 Not Found\r\n"
+					header = "HTTP/1.1 404 Not Found\r\n"
 								+ date + "\r\n"
 								+ server + "\r\n"
 								+ connect + "\r\n" + "\r\n";
-				} else {
+
+					headerBytes = header.getBytes("US-ASCII");
+					byteStream.write(headerBytes);
+				}
+				
+				else {
 					try {
 						lastMod = "Last-Modified: " + fmt.format(file.lastModified());
 						Integer contentSize = new Double(file.length()).intValue();
@@ -56,14 +68,27 @@ public class Worker extends Thread {
 						//ignore
 					}
 
-					response = "HTTP/1.1 200 OK\r\n" + date + "\r\n" + server + "\r\n"
+					header = "HTTP/1.1 200 OK\r\n" + date + "\r\n" + server + "\r\n"
 								+ lastMod + "\r\n" + contentLength + "\r\n"
 								+ contentType + "\r\n" + connect + "\r\n" + "\r\n";
+
+					headerBytes = header.getBytes("US-ASCII");
+					byteStream.write(headerBytes);
+
+					byte[] bodyBytes = new byte[(int) file.length()];
+					try {
+						FileInputStream fis = new FileInputStream(file);
+						fis.read(bodyBytes);
+					} catch (Exception e) {
+						//ignore
+					}
+					byteStream.write(bodyBytes);
 				}
 			}
 
-			System.out.printf(response);
-			outputStream.println(response);
+			byte[] object = byteStream.toByteArray();
+
+			outputStream.write(object);
 			outputStream.flush();
 
 			inputStream.close();
